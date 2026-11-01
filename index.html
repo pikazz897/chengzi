@@ -237,17 +237,21 @@ nav{transition:opacity .2s ease, transform .2s ease;}
 
 /* 英雄卡片 */
 .herocard{background:#1b1b1d;border-radius:16px;margin-bottom:10px;overflow:hidden}
-.herohead{display:flex;align-items:center;gap:10px;padding:12px 12px}
-.heroLv{width:34px;height:34px;border-radius:50%;background:#3a3a3c;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:0 0 auto}
-.heroAv{width:44px;height:44px;border-radius:10px;object-fit:contain;background:#242427;flex:0 0 auto}
-.heroName{font-size:14px;font-weight:600;flex:0 0 auto}
-.heroSkills{display:flex;gap:6px;margin-left:auto}
-.heroSkills i{font-style:normal;font-size:9px;line-height:1.15;color:#c7c7cc;background:#2c2c2e;border-radius:8px;padding:5px 7px;max-width:56px;text-align:center;display:flex;align-items:center}
+.herohead{display:flex;align-items:center;gap:8px;padding:12px}
+.heroLv2{font-size:12px;font-weight:700;color:#ffc53d;flex:0 0 auto;min-width:34px}
+.heroAv{width:40px;height:40px;border-radius:10px;object-fit:contain;background:#242427;flex:0 0 auto}
+.heroName{font-size:13px;font-weight:600;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.heroSkills{display:grid;grid-template-columns:repeat(3,44px);gap:4px;flex:0 0 auto}
+.heroSkills .sk{display:flex;flex-direction:column;gap:3px}
+.heroSkills i{font-style:normal;font-size:8px;line-height:1.1;color:#c7c7cc;background:#2c2c2e;border-radius:6px;padding:4px 2px;text-align:center;height:26px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.heroSkills b{font-size:8px;line-height:1.1;color:#ffc53d;background:#2c2c2e;border-radius:6px;padding:3px 2px;text-align:center;font-weight:600}
 .herobody{padding:0 12px 14px}
 
 .heroLv2{font-size:12px;font-weight:700;color:#ffc53d;flex:0 0 auto}
 .heroSkills i b{display:block;font-size:9px;font-weight:600;color:#8e8e93;margin-top:2px}
 .timebox{background:#242427;border-radius:12px;padding:6px 10px;margin:8px 0}
+
+.batchrow{display:flex;align-items:center;justify-content:space-between;background:#1b1b1d;border-radius:14px;padding:12px 14px;margin:10px 0;font-size:13px;font-weight:600}
 </style>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -856,6 +860,13 @@ function statueSection(){
   const cap = statueCap();
   let html = '<div class="sec"><h3>神像' + (cap ? ' · 上限 ' + cap + ' 尊' : '') + '</h3>'
     + '<button class="btn sm" data-addstatue="1">+ 添加</button></div>';
+  const _tot = statueTotals();
+  if(_tot.length){
+    html += '<div class="card" style="margin-bottom:10px">'
+      + _tot.map(function(t2){
+          return '<div class="kv"><span class="k">' + esc(t2.attr) + ' 总加成</span><span class="v" style="color:#ffc53d">+' + t2.total + '%</span></div>';
+        }).join('') + '</div>';
+  }
   if(!S.statues.length){
     return html + '<div class="card"><div class="empty">还没记录神像，点「+ 添加」录入<br>'
       + '<span class="mini">数值填游戏里显示的百分比</span></div></div>';
@@ -1152,8 +1163,8 @@ function heroSection(){
           + '<span class="heroSkills">'
           + (sk.length ? sk.map(function(k){
               var slv = (S.skillLv && S.skillLv[e.name + '|' + k]) || 1;
-              return '<i data-skill="' + esc(e.name) + '|' + esc(k) + '">' + esc(k) + '<b>' + slv + '</b></i>';
-            }).join('') : '<i>—</i>')
+              return '<span class="sk"><i data-skill="' + esc(e.name) + '|' + esc(k) + '">' + esc(k) + '</i><b>Lv.' + slv + '</b></span>';
+            }).join('') : '<span class="sk"><i>—</i><b>—</b></span>')
           + '</span></div>';
         if(isOpen){
           html += '<div class="herobody">'
@@ -1562,13 +1573,20 @@ function renderPlan(){
     + '<div class="card">'
     + '<div class="kv"><span class="k">还差经验</span><span class="v">' + fmtNum(p.need) + '</span></div>'
     + '<div class="kv"><span class="k">本批 ' + p.picks.length + ' 项可拿</span><span class="v">+' + fmtNum(p.got) + ' 经验</span></div>'
-    + '<div class="timebox"><div class="kv"><span class="k">本批 ' + p.picks.length + ' 项 · 工人 ' + p.workers + ' 人 · 减时间 ' + Math.round((1 - 1/p.speed) * 100) + '%</span><span class="v">约 ' + fmtDur(p.makespan) + '</span></div>'
-    + '<div class="kv"><span class="k">累计总时间（含已排程）</span><span class="v">' + fmtDur(p.makespan + (S.tasks || []).reduce(function(a,t){ return a + Math.max(0, t.end - Date.now())/1000; }, 0)) + '</span></div></div>'
+    + (function(){
+        const batches = Math.max(1, Math.ceil(p.need / Math.max(1, p.got)));
+        const totalT = batches * p.makespan + (S.tasks || []).reduce(function(a,t){ return a + Math.max(0, t.end - Date.now())/1000; }, 0);
+        return '<div class="timebox">'
+          + '<div class="kv"><span class="k">本批 ' + p.picks.length + ' 项 · 工人 ' + p.workers + ' 人 · 减时间 ' + Math.round((1 - 1/p.speed) * 100) + '%</span><span class="v">约 ' + fmtDur(p.makespan) + '</span></div>'
+          + '<div class="kv"><span class="k">需要约 ' + batches + ' 个批次</span><span class="v">合计 ' + fmtDur(totalT) + '</span></div>'
+          + '</div>';
+      })()
     + '<div class="kv"><span class="k">做完本批累计</span><span class="v">' + fmtNum(p.got) + ' / ' + fmtNum(p.need) + '（还差 ' + fmtNum(p.need - p.got) + '）</span></div>'
     + '<div class="bar" style="margin:8px 0"><i style="width:' + pct + '%"></i></div>'
     + '<div class="mini">下面 ' + p.picks.length + ' 项按「' + (curSort==='xp'?'单次经验最多':(curSort==='time'?'耗时最短':'每小时经验最多')) + '」排序，大本或任何升级完成后自动重算</div>'
     + '</div>'
-    + '<div class="rowlist">' + p.picks.map(function(it){
+    + '<div class="batchrow" data-batchtoggle="1"><span>第 1 批 · ' + p.picks.length + ' 项</span><span class="mini">' + (window.__batchOpen ? '收起 ▲' : '展开 ▼') + '</span></div>'
+    + '<div class="rowlist"' + (window.__batchOpen ? '' : ' style="display:none"') + '>' + p.picks.map(function(it){
         const laneTxt = it.lane === 'lab' ? '<span class="tag">研究所</span>' : '<span class="mini">第' + (it.inst+1) + '座</span>';
         const act = it.lane === 'w'
           ? 'data-planup="' + esc(it.name) + '|' + it.inst + '"'
@@ -2049,6 +2067,7 @@ document.addEventListener('click', function(ev){
 
   if(t.dataset.hq){ S.hq = Math.max(1, Math.min(30, S.hq + Number(t.dataset.hq))); save(); renderAll(); return; }
     if(t.dataset.basecat){ baseCat = t.dataset.basecat; renderBase(); return; }
+    if(t.dataset.batchtoggle){ window.__batchOpen = !window.__batchOpen; renderList(); return; }
     if(t.dataset.plansort){ S.settings.planSort = t.dataset.plansort; save(); renderList(); renderHome(); return; }
     if(t.dataset.planlv){ editPlanLv(); return; }
     if(t.dataset.planup){ var pq = t.dataset.planup.split('|'); startBuildingUpgrade(pq[0], parseInt(pq[1],10)); return; }
