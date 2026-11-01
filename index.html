@@ -1028,8 +1028,8 @@ function troopSection(title, arr, kind){
             + (wikiImg(e.name) ? '<img class="thumb" src="' + wikiImg(e.name) + '" alt="" loading="lazy">' : '')
             + '<div class="main"><div class="nm">' + esc(e.name) + ' <span class="tag">原型</span></div>'
             + '<div class="sub">当前 Lv.' + ((S.protoLv && S.protoLv[e.name]) || 1) + (maxV ? ' · 满级 Lv.' + maxV : '') + '</div></div>'
-            + '<button class="btn sm" data-tlvl="' + kind + '|' + esc(x.name) + '|-1" style="padding:2px 8px">－</button>'
-        + '<button class="btn sm" data-tlvl="' + kind + '|' + esc(x.name) + '|1" style="padding:2px 8px">＋</button>'
+            + '<button class="btn sm" data-tlvl="p|' + esc(e.name) + '|-1" style="padding:2px 8px">－</button>'
+        + '<button class="btn sm" data-tlvl="p|' + esc(e.name) + '|1" style="padding:2px 8px">＋</button>'
         + '<span class="chev">›</span></div>';
         }).join('') + '</div>';
   }
