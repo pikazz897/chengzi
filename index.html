@@ -244,6 +244,10 @@ nav{transition:opacity .2s ease, transform .2s ease;}
 .heroSkills{display:flex;gap:6px;margin-left:auto}
 .heroSkills i{font-style:normal;font-size:9px;line-height:1.15;color:#c7c7cc;background:#2c2c2e;border-radius:8px;padding:5px 7px;max-width:56px;text-align:center;display:flex;align-items:center}
 .herobody{padding:0 12px 14px}
+
+.heroLv2{font-size:12px;font-weight:700;color:#ffc53d;flex:0 0 auto}
+.heroSkills i b{display:block;font-size:9px;font-weight:600;color:#8e8e93;margin-top:2px}
+.timebox{background:#242427;border-radius:12px;padding:6px 10px;margin:8px 0}
 </style>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -673,11 +677,12 @@ function settle(t){
       checkLinkedTodos(t.name);
     }else if(t.kind === 'tech'){
       const list = techList(t.techKind);
-      const item = list.filter(function(x){ return x.name === t.name; })[0];
+      const item = list ? list.filter(function(x){ return x.name === t.name; })[0] : null;
       const e = techEntry(t.techKind, t.name);
       const nx = e && e.lv ? e.lv.filter(function(r){ return r.v === t.to; })[0] : null;
       const before = playerLevel();
       if(item) item.lvl = t.to;
+      if(t.techKind === 'p'){ S.protoLv = S.protoLv || {}; S.protoLv[t.name] = t.to; }
       if(nx && nx.xp){ S.xpTotal += nx.xp; }
       const after = playerLevel();
       S.log.unshift({at: Date.now(), text: t.name + ' 研究到 Lv.' + t.to, xp: (nx && nx.xp) || 0});
@@ -1065,11 +1070,33 @@ function heroSheet(name){
           + '<div class="kv"><span class="k">升级时间</span><span class="v">' + fmtDur(nx.t || 0) + '</span></div>'
           + '<div class="kv"><span class="k">需要大本</span><span class="v">Lv.' + (nx.hq || '—') + '</span></div>' : '')
     + '<button class="btn" style="width:100%;margin-top:10px" data-db="' + esc(name) + '">查看逐级数据</button>'
-    + '<div class="mini" style="margin-top:14px">核对等级</div>'
+    + ''
     + '<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:8px">'
     + '<button class="btn" data-hlvl="' + esc(name) + '|-1" style="padding:6px 18px">－</button>'
     + '<span style="min-width:64px;text-align:center;font-weight:600">Lv.' + cur + '</span>'
     + '<button class="btn gold" data-hlvl="' + esc(name) + '|1"' + (cur >= maxV ? ' disabled' : '') + ' style="padding:6px 18px">＋</button>'
+    + '</div>');
+}
+function protoSheet(name){
+  const e = byName[name];
+  if(!e || !e.lv){ openSheet('<h3>' + esc(name) + '</h3>'); return; }
+  S.protoLv = S.protoLv || {};
+  const cur = S.protoLv[name] || 1;
+  const r = e.lv.filter(function(x){ return x.v === cur; })[0] || e.lv[0];
+  const nx = e.lv.filter(function(x){ return x.v === cur + 1; })[0];
+  const maxL = techMaxLv('p', name);
+  openSheet((wikiImg(name) ? '<img class="bigimg" src="' + wikiImg(name) + '" alt="">' : '')
+    + '<h3>' + esc(name) + '</h3><div class="sub">当前 Lv.' + cur + ' · 工厂等级上限 Lv.' + maxL + '</div>'
+    + '<div class="kv"><span class="k">生命值</span><span class="v">' + fmtNum(r.hp || 0) + '</span></div>'
+    + '<div class="kv"><span class="k">每秒伤害</span><span class="v">' + (r.dps ? fmtNum(r.dps) : '—') + '</span></div>'
+    + (nx ? '<div class="kv"><span class="k">升到 Lv.' + nx.v + '</span><span class="v">' + (nx.upcost ? fmtNum(nx.upcost) + ' 金币' : '—') + ' · ' + fmtDur(nx.t || 0) + '</span></div>'
+          + '<div class="kv"><span class="k">需要工厂等级</span><span class="v">Lv.' + (nx.lab || '—') + '</span></div>' : '<div class="mini">已满级</div>')
+    + '<button class="btn gold" style="width:100%;margin-top:12px" data-techgo="p|' + esc(name) + '">开始研究（原型部队工厂）</button>'
+    + '<button class="btn" style="width:100%;margin-top:8px" data-db="' + esc(name) + '">查看逐级数据</button>'
+    + '<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:12px">'
+    + '<button class="btn" data-tlvl="p|' + esc(name) + '|-1" style="padding:6px 18px">－</button>'
+    + '<span style="min-width:64px;text-align:center;font-weight:600">Lv.' + cur + '</span>'
+    + '<button class="btn gold" data-tlvl="p|' + esc(name) + '|1"' + (cur >= maxL ? ' disabled' : '') + ' style="padding:6px 18px">＋</button>'
     + '</div>');
 }
 function sheetSkill(hero, skill){
@@ -1119,11 +1146,14 @@ function heroSection(){
         const sk = (e.skills || []).slice(0,3);
         let html = '<div class="herocard' + (isOpen ? ' open' : '') + '">'
           + '<div class="herohead" data-hero-toggle="' + esc(e.name) + '">'
-          + '<span class="heroLv">' + cur + '</span>'
           + (wikiImg(e.name) ? '<img class="heroAv" src="' + wikiImg(e.name) + '" alt="">' : '<span class="heroAv"></span>')
+          + '<span class="heroLv2">Lv.' + cur + '</span>'
           + '<span class="heroName">' + esc(e.name) + '</span>'
           + '<span class="heroSkills">'
-          + (sk.length ? sk.map(function(k){ return '<i data-skill="' + esc(e.name) + '|' + esc(k) + '">' + esc(k) + '</i>'; }).join('') : '<i>—</i>')
+          + (sk.length ? sk.map(function(k){
+              var slv = (S.skillLv && S.skillLv[e.name + '|' + k]) || 1;
+              return '<i data-skill="' + esc(e.name) + '|' + esc(k) + '">' + esc(k) + '<b>' + slv + '</b></i>';
+            }).join('') : '<i>—</i>')
           + '</span></div>';
         if(isOpen){
           html += '<div class="herobody">'
@@ -1152,12 +1182,11 @@ function troopSection(title, arr, kind){
     return '<div class="sec"><h3>' + title + '</h3><span class="more">' + list.length + ' 种</span></div><div class="rowlist">'
       + list.map(function(e){
           const maxV = e.lv && e.lv.length ? e.lv[e.lv.length - 1].v : null;
-          return '<div class="row" data-db="' + esc(e.name) + '">'
+          return '<div class="row" data-proto="' + esc(e.name) + '">'
             + (wikiImg(e.name) ? '<img class="thumb" src="' + wikiImg(e.name) + '" alt="" loading="lazy">' : '')
             + '<div class="main"><div class="nm">' + esc(e.name) + ' <span class="tag">原型</span></div>'
             + '<div class="sub">当前 Lv.' + ((S.protoLv && S.protoLv[e.name]) || 1) + (maxV ? ' · 满级 Lv.' + maxV : '') + '</div></div>'
-            + '<button class="btn sm" data-tlvl="p|' + esc(e.name) + '|-1" style="padding:2px 8px">－</button>'
-        + '<button class="btn sm" data-tlvl="p|' + esc(e.name) + '|1" style="padding:2px 8px">＋</button>'
+
         + '<span class="chev">›</span></div>';
         }).join('') + '</div>';
   }
@@ -1533,7 +1562,8 @@ function renderPlan(){
     + '<div class="card">'
     + '<div class="kv"><span class="k">还差经验</span><span class="v">' + fmtNum(p.need) + '</span></div>'
     + '<div class="kv"><span class="k">本批 ' + p.picks.length + ' 项可拿</span><span class="v">+' + fmtNum(p.got) + ' 经验</span></div>'
-    + '<div class="kv"><span class="k">本批 ' + p.picks.length + ' 项 · 工人 ' + p.workers + ' 人 · 减时间 ' + Math.round((1 - 1/p.speed) * 100) + '%</span><span class="v">约 ' + fmtDur(p.makespan) + '</span></div>'
+    + '<div class="timebox"><div class="kv"><span class="k">本批 ' + p.picks.length + ' 项 · 工人 ' + p.workers + ' 人 · 减时间 ' + Math.round((1 - 1/p.speed) * 100) + '%</span><span class="v">约 ' + fmtDur(p.makespan) + '</span></div>'
+    + '<div class="kv"><span class="k">累计总时间（含已排程）</span><span class="v">' + fmtDur(p.makespan + (S.tasks || []).reduce(function(a,t){ return a + Math.max(0, t.end - Date.now())/1000; }, 0)) + '</span></div></div>'
     + '<div class="kv"><span class="k">做完本批累计</span><span class="v">' + fmtNum(p.got) + ' / ' + fmtNum(p.need) + '（还差 ' + fmtNum(p.need - p.got) + '）</span></div>'
     + '<div class="bar" style="margin:8px 0"><i style="width:' + pct + '%"></i></div>'
     + '<div class="mini">下面 ' + p.picks.length + ' 项按「' + (curSort==='xp'?'单次经验最多':(curSort==='time'?'耗时最短':'每小时经验最多')) + '」排序，大本或任何升级完成后自动重算</div>'
@@ -1649,26 +1679,33 @@ function renderList(){
 /* 研究所：同一时间只能升一个科技 */
 function labBusy(){ return S.tasks.some(function(t){ return t.lane === 'lab'; }); }
 function protoBusy(){ return S.tasks.some(function(t){ return t.lane === 'proto'; }); }
-function techList(kind){ return kind === 't' ? S.troops : S.weapons; }
+function techList(kind){ return kind === 't' ? S.troops : kind === 'w' ? S.weapons : null; }
 function techEntry(kind, name){
   const key = TROOP_ALIAS[name] || name;
   return byName[key] || null;
 }
 function startTechUpgrade(kind, name){
-  const list = techList(kind);
-  const item = list.filter(function(x){ return x.name === name; })[0];
-  if(!item){ toast('找不到这个科技'); return; }
+  let curLv = 0;
+  if(kind === 'p'){
+    S.protoLv = S.protoLv || {};
+    curLv = S.protoLv[name] || 1;
+  }else{
+    const list = techList(kind);
+    const item = list ? list.filter(function(x){ return x.name === name; })[0] : null;
+    if(!item){ toast('找不到这个科技'); return; }
+    curLv = item.lvl;
+  }
   const e = techEntry(kind, name);
   if(!e || !e.lv || !e.lv.length){ toast('这个科技还没有升级数据'); return; }
   const isProto = e.cat === '原型部队';
   if(isProto ? protoBusy() : labBusy()){
     toast((isProto ? '原型部队工厂' : '研究所') + '正在升级，等它完成'); return;
   }
-  const nx = e.lv.filter(function(r){ return r.v === item.lvl + 1; })[0];
-  if(!nx || !nx.t){ toast('缺少 Lv.' + (item.lvl + 1) + ' 的升级数据'); return; }
+  const nx = e.lv.filter(function(r){ return r.v === curLv + 1; })[0];
+  if(!nx || !nx.t){ toast('缺少 Lv.' + (curLv + 1) + ' 的升级数据'); return; }
   S.tasks.push({
     id: uid(), lane: isProto ? 'proto' : 'lab', kind: 'tech', techKind: kind, name: name,
-    from: item.lvl, to: item.lvl + 1, start: Date.now(), end: Date.now() + Math.max(1, Math.round(nx.t * 1000 / (S.settings.speed || 1)))
+    from: curLv, to: curLv + 1, start: Date.now(), end: Date.now() + Math.max(1, Math.round(nx.t * 1000 / (S.settings.speed || 1)))
   });
   save(); renderAll(); toast(name + ' 开始研究 → Lv.' + (item.lvl + 1));
 }
@@ -1901,7 +1938,7 @@ function sheetTroop(kind, i){
     + (extra || '<div class="mini">这个条目还没有逐级数据，补完表后重新生成即可。</div>')
     + (hasData ? '<button class="btn gold" style="width:100%;margin-top:12px" data-techgo="' + kind + '|' + esc(x.name) + '">开始研究（研究所）</button>' : '')
     + (hasData ? '<button class="btn" style="width:100%;margin-top:8px" data-db="' + esc(key) + '">查看逐级数据</button>' : '')
-    + '<div class="hint" style="margin-top:14px">核对等级（和游戏不一致就点这里改）</div>'
+    + ''
     + '<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:8px">'
     + '<button class="btn" data-tlvl="' + kind + '|' + esc(x.name) + '|-1" style="padding:6px 18px">－</button>'
     + '<span style="min-width:64px;text-align:center;font-weight:600">Lv.' + x.lvl + '</span>'
@@ -2015,6 +2052,7 @@ document.addEventListener('click', function(ev){
     if(t.dataset.plansort){ S.settings.planSort = t.dataset.plansort; save(); renderList(); renderHome(); return; }
     if(t.dataset.planlv){ editPlanLv(); return; }
     if(t.dataset.planup){ var pq = t.dataset.planup.split('|'); startBuildingUpgrade(pq[0], parseInt(pq[1],10)); return; }
+    if(t.dataset.proto){ protoSheet(t.dataset.proto); return; }
     if(t.dataset.skill){ var sp = t.dataset.skill.split('|'); sheetSkill(sp[0], sp[1]); return; }
     if(t.dataset.skilllvl){
       var kv2 = t.dataset.skilllvl.split('|'), sk2 = kv2[0], dv2 = parseInt(kv2[1],10);
