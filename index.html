@@ -943,6 +943,12 @@ function sheetAddStatue(){
   document.querySelector('#stSave').onclick = function(){
     const v = parseFloat(document.querySelector('#stVal').value);
     if(!isFinite(v)){ toast('先填一下加成数值'); return; }
+    const _attr = document.querySelector('#stAttr').value;
+    // 极品雕像：同一属性只能有一个
+    if(size === '极品'){
+      const dup = S.statues.filter(function(x){ return x.q === '极品雕像' && x.attr === _attr; })[0];
+      if(dup){ toast('极品「' + _attr + '」已经有雕像了，同一属性只能有一个极品'); return; }
+    }
     S.statues.push({
       color: color,
       attr: document.querySelector('#stAttr').value,
@@ -1000,10 +1006,11 @@ function renderBase(){
   });
 
   // 兵种 / 武器 / 原型
-  html += troopSection('兵种（科技）', S.troops, 't');
-  html += troopSection('战舰武器', S.weapons, 'w');
-  html += troopSection('原型部队', S.protos, 'p');
-  html += statueSection();
+  const _show = function(c){ return baseCat === '全部' || baseCat === c; };
+  if(_show('兵种')) html += troopSection('兵种（科技）', S.troops, 't');
+  if(_show('战舰武器')) html += troopSection('战舰武器', S.weapons, 'w');
+  if(_show('原型部队')) html += troopSection('原型部队', S.protos, 'p');
+  if(_show('其他')) html += statueSection();
 
   $('#baseWrap').innerHTML = html;
 }
@@ -1760,7 +1767,8 @@ function sheetTroop(kind, i){
   openSheet('<h3>' + esc(x.name) + '</h3>'
     + '<div class="sub">当前 Lv.' + x.lvl + (maxV ? ' · 满级 Lv.' + maxV : '') + '</div>'
     + (extra || '<div class="mini">这个条目还没有逐级数据，补完表后重新生成即可。</div>')
-    + (hasData ? '<button class="btn primary" style="width:100%;margin-top:12px" data-db="' + esc(key) + '">查看逐级数据</button>' : ''));
+    + (hasData ? '<button class="btn gold" style="width:100%;margin-top:12px" data-techgo="' + kind + '|' + esc(x.name) + '">开始研究（研究所）</button>' : '')
+    + (hasData ? '<button class="btn" style="width:100%;margin-top:8px" data-db="' + esc(key) + '">查看逐级数据</button>' : ''));
 }
 function sheetDb(name){
   const e = byName[name];
@@ -1866,6 +1874,7 @@ document.addEventListener('click', function(ev){
     if(t.dataset.plansort){ S.settings.planSort = t.dataset.plansort; save(); renderList(); renderHome(); return; }
     if(t.dataset.planlv){ editPlanLv(); return; }
     if(t.dataset.planup){ var pq = t.dataset.planup.split('|'); startBuildingUpgrade(pq[0], parseInt(pq[1],10)); return; }
+    if(t.dataset.techgo){ var g=t.dataset.techgo.split('|'); closeSheet(); startTechUpgrade(g[0], g[1]); return; }
     if(t.dataset.techup){ var tq = t.dataset.techup.split('|'); startTechUpgrade(tq[0], tq[1]); return; }
     if(t.dataset.lvinc || t.dataset.lvdec){
       var q=(t.dataset.lvinc||t.dataset.lvdec).split('|'), nm=q[0], ix=parseInt(q[1],10);
