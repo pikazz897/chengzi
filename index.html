@@ -1027,8 +1027,10 @@ function troopSection(title, arr, kind){
           return '<div class="row" data-db="' + esc(e.name) + '">'
             + (wikiImg(e.name) ? '<img class="thumb" src="' + wikiImg(e.name) + '" alt="" loading="lazy">' : '')
             + '<div class="main"><div class="nm">' + esc(e.name) + ' <span class="tag">原型</span></div>'
-            + '<div class="sub">' + (maxV ? '满级 Lv.' + maxV + ' · 点开看逐级数据' : '数据待补') + '</div></div>'
-            + '<span class="chev">›</span></div>';
+            + '<div class="sub">当前 Lv.' + ((S.protoLv && S.protoLv[e.name]) || 1) + (maxV ? ' · 满级 Lv.' + maxV : '') + '</div></div>'
+            + '<button class="btn sm" data-tlvl="' + kind + '|' + esc(x.name) + '|-1" style="padding:2px 8px">－</button>'
+        + '<button class="btn sm" data-tlvl="' + kind + '|' + esc(x.name) + '|1" style="padding:2px 8px">＋</button>'
+        + '<span class="chev">›</span></div>';
         }).join('') + '</div>';
   }
   if(!arr || !arr.length) return '';
@@ -1053,6 +1055,8 @@ function troopSection(title, arr, kind){
         + '<div class="main"><div class="nm">' + esc(x.name)
         + (hasData ? '' : ' <span class="tag warn">升级数据待补</span>') + '</div>'
         + '<div class="sub">当前 Lv.' + x.lvl + (maxV ? ' · 满级 Lv.' + maxV : '') + nextInfo + '</div></div>'
+        + '<button class="btn sm" data-tlvl="' + kind + '|' + esc(x.name) + '|-1" style="padding:2px 8px">－</button>'
+        + '<button class="btn sm" data-tlvl="' + kind + '|' + esc(x.name) + '|1" style="padding:2px 8px">＋</button>'
         + '<span class="chev">›</span></div>';
     }).join('') + '</div>';
 }
@@ -1817,6 +1821,8 @@ function sheetSettings(){
     + '<button class="btn" id="btnExport">导出备份</button>'
     + '<button class="btn" id="btnImport">导入备份</button></div>'
     + '<div class="mini" style="margin-top:10px">数据存在这台手机的浏览器里。' + (storageOK ? '本地存储可用。' : '⚠️ 本地存储不可用，请务必导出备份。') + '</div>'
+    + '<button class="btn" id="btnForceUpdate" style="width:100%;margin-top:14px">检查更新 / 强制刷新</button>'
+    + '<div class="mini" style="margin-top:6px">页面显示旧版时点它：清掉网页缓存后重新加载，<b>不会删除你的数据</b></div>'
     + '<button class="btn" id="btnReset" style="width:100%;margin-top:14px;color:var(--red)">重置为初始数据</button>'
   );
 }
@@ -1874,6 +1880,21 @@ document.addEventListener('click', function(ev){
     if(t.dataset.plansort){ S.settings.planSort = t.dataset.plansort; save(); renderList(); renderHome(); return; }
     if(t.dataset.planlv){ editPlanLv(); return; }
     if(t.dataset.planup){ var pq = t.dataset.planup.split('|'); startBuildingUpgrade(pq[0], parseInt(pq[1],10)); return; }
+    if(t.dataset.tlvl){
+      var lp = t.dataset.tlvl.split('|'), lk = lp[0], ln = lp[1], ld = parseInt(lp[2],10);
+      if(lk === 'p'){
+        S.protoLv = S.protoLv || {};
+        var cv = S.protoLv[ln] || 1;
+        cv = Math.max(0, Math.min(40, cv + ld));
+        S.protoLv[ln] = cv;
+      }else{
+        var lst = (lk === 't') ? S.troops : S.weapons;
+        var it2 = lst.filter(function(x){ return x.name === ln; })[0];
+        if(it2){ it2.lvl = Math.max(0, Math.min(40, it2.lvl + ld)); }
+      }
+      save(); renderBase(); renderHome(); renderList();
+      return;
+    }
     if(t.dataset.techgo){ var g=t.dataset.techgo.split('|'); closeSheet(); startTechUpgrade(g[0], g[1]); return; }
     if(t.dataset.techup){ var tq = t.dataset.techup.split('|'); startTechUpgrade(tq[0], tq[1]); return; }
     if(t.dataset.lvinc || t.dataset.lvdec){
@@ -1981,6 +2002,19 @@ const _calcAdd=$('#calcAdd'); _calcAdd && _calcAdd.addEventListener('click', fun
   if(!recOf(name, to)){ toast('表里没有 Lv.' + to + ' 的数据'); return; }
   calcSel.push({name:name, idx:idx, from:from, to:to});
   renderCalcItems();
+});
+const _btnForce = $('#btnForceUpdate');
+_btnForce && _btnForce.addEventListener('click', function(){
+  toast('正在清理缓存…');
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations().then(function(rs){
+      rs.forEach(function(r){ r.unregister(); });
+    });
+  }
+  if(window.caches){
+    caches.keys().then(function(ks){ ks.forEach(function(k){ caches.delete(k); }); });
+  }
+  setTimeout(function(){ location.reload(); }, 600);
 });
 const _calcClear=$('#calcClear'); _calcClear && _calcClear.addEventListener('click', function(){ calcSel = []; renderCalcItems(); });
 
