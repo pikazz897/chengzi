@@ -240,11 +240,11 @@ nav{transition:opacity .2s ease, transform .2s ease;}
 .herohead{display:flex;align-items:center;gap:8px;padding:12px}
 .heroLv2{font-size:12px;font-weight:700;color:#ffc53d;flex:0 0 auto;min-width:34px}
 .heroAv{width:40px;height:40px;border-radius:10px;object-fit:contain;background:#242427;flex:0 0 auto}
-.heroName{font-size:13px;font-weight:600;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.heroSkills{display:grid;grid-template-columns:repeat(3,44px);gap:4px;flex:0 0 auto}
+.heroName{font-size:12.5px;font-weight:600;flex:0 1 auto;min-width:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.heroSkills{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;flex:1 1 auto;min-width:0}
 .heroSkills .sk{display:flex;flex-direction:column;gap:3px}
-.heroSkills i{font-style:normal;font-size:8px;line-height:1.1;color:#c7c7cc;background:#2c2c2e;border-radius:6px;padding:4px 2px;text-align:center;height:26px;overflow:hidden;display:flex;align-items:center;justify-content:center}
-.heroSkills b{font-size:8px;line-height:1.1;color:#ffc53d;background:#2c2c2e;border-radius:6px;padding:3px 2px;text-align:center;font-weight:600}
+.heroSkills i{font-style:normal;font-size:8.5px;line-height:1.2;color:#c7c7cc;background:#2c2c2e;border-radius:7px;padding:5px 3px;text-align:center;height:30px;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden}
+.heroSkills b{font-size:9px;line-height:1.2;color:#ffc53d;background:#2c2c2e;border-radius:7px;padding:4px 3px;text-align:center;font-weight:700}
 .herobody{padding:0 12px 14px}
 
 .heroLv2{font-size:12px;font-weight:700;color:#ffc53d;flex:0 0 auto}
@@ -1143,7 +1143,9 @@ function sheetSkill(hero, skill){
     + '</div>');
 }
 function heroSection(){
-  const list = DB.filter(function(e){ return e.cat === '英雄'; });
+  const ORDER = ['布里克中士','巫医卡万','伊娃斯巴克上尉','列兵布利特','鲁德洛上尉'];
+  const list = DB.filter(function(e){ return e.cat === '英雄'; })
+    .sort(function(a,b){ return ORDER.indexOf(a.name) - ORDER.indexOf(b.name); });
   if(!list.length) return '';
   S.heroLv = S.heroLv || {};
   const open = window.__heroOpen || '';
@@ -2060,7 +2062,7 @@ setInterval(tick, 1000);
 
 /* ============ 事件绑定 ============ */
 document.addEventListener('click', function(ev){
-  const t = ev.target.closest('button, .row, .tab, .switch, [data-skill], [data-hero-toggle]');
+  const t = ev.target.closest('button, .row, .tab, .switch, [data-skill], [data-hero-toggle], [data-batchtoggle]');
   if(!t) return;
 
   if(t.classList.contains('tab')){ go(t.dataset.go); return; }
