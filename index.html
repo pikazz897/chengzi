@@ -558,6 +558,7 @@ function fresh(){
     rewards: clone(REWARD_SEED || {}),
     weekRewards: [],
     weekPlan: [0,0,0,0,0,0,0],
+  order: {},
     tasks: [],
     todos: [],
     log: [],
@@ -670,7 +671,8 @@ function startBuildingUpgrade(name, idx){
     id: uid(), lane: lane, kind: 'b', name: name, idx: idx,
     from: cur, to: cur+1, start: Date.now(), end: Date.now() + dur
   });
-  save(); renderAll(); toast(name + ' 开始升级 → Lv.' + (cur+1));
+  save(); renderAll();
+attachLongPress(); toast(name + ' 开始升级 → Lv.' + (cur+1));
 }
 function settle(t){
   try{
@@ -1004,6 +1006,16 @@ function renderBase(){
       : (['锯木厂','采石场','铁矿','民房','木材库','石材库','钢材库','金库','保险库'].indexOf(name) >= 0 ? '资源建筑' : '核心建筑'));
     (groups[cat] = groups[cat] || []).push(name);
   });
+  Object.keys(groups).forEach(function(c){
+    const ord = (S.order && S.order[c]) || [];
+    groups[c].sort(function(a,b){
+      const ia = ord.indexOf(a), ib = ord.indexOf(b);
+      if(ia < 0 && ib < 0) return 0;
+      if(ia < 0) return 1;
+      if(ib < 0) return -1;
+      return ia - ib;
+    });
+  });
   $('#hqHint').textContent = '大本 ' + S.hq + ' 级：建筑上限按数据表里的「大本等级」自动计算。';
 
   const chips = $('#baseCats');
@@ -1148,6 +1160,44 @@ function sheetSkill(hero, skill){
     + '<span style="min-width:64px;text-align:center;font-weight:600">Lv.' + cur + '</span>'
     + '<button class="btn gold" data-skilllvl="' + esc(key) + '|1"' + (cur >= det.rows.length ? ' disabled' : '') + ' style="padding:6px 18px">＋</button>'
     + '</div>');
+}
+function moveRow(name, dir, cat){
+  S.order = S.order || {};
+  const all = Object.keys(S.buildings).filter(function(n){
+    const e = byName[n];
+    const c = (e && e.cat && e.cat !== '其他') ? e.cat : '核心建筑';
+    return c === cat;
+  });
+  let list = (S.order[cat] && S.order[cat].slice()) || [];
+  all.forEach(function(n){ if(list.indexOf(n) < 0) list.push(n); });
+  const i = list.indexOf(name);
+  if(i < 0) return;
+  let j = i + dir;
+  if(dir === -999){ list.splice(i,1); list.unshift(name); }
+  else { if(j < 0 || j >= list.length) return; list.splice(i,1); list.splice(j,0,name); }
+  S.order[cat] = list;
+  save(); renderBase(); closeSheet();
+}
+function openReorderSheet(name){
+  const e = byName[name];
+  const cat = (e && e.cat && e.cat !== '其他') ? e.cat : '核心建筑';
+  openSheet('<h3>' + esc(name) + '</h3><div class="sub">调整在「' + esc(cat) + '」里的位置</div>'
+    + '<button class="btn" style="width:100%;margin-top:10px" data-mv="' + esc(name) + '|' + esc(cat) + '|-999">置顶</button>'
+    + '<button class="btn" style="width:100%;margin-top:8px" data-mv="' + esc(name) + '|' + esc(cat) + '|-1">上移</button>'
+    + '<button class="btn" style="width:100%;margin-top:8px" data-mv="' + esc(name) + '|' + esc(cat) + '|1">下移</button>');
+}
+function attachLongPress(){
+  let timer = null, moved = false;
+  document.addEventListener('touchstart', function(ev){
+    const row = ev.target.closest('[data-type]');
+    if(!row) return;
+    moved = false;
+    timer = setTimeout(function(){
+      if(!moved) openReorderSheet(row.dataset.type);
+    }, 550);
+  }, {passive:true});
+  document.addEventListener('touchmove', function(){ moved = true; if(timer){ clearTimeout(timer); timer=null; } }, {passive:true});
+  document.addEventListener('touchend', function(){ if(timer){ clearTimeout(timer); timer = null; } }, {passive:true});
 }
 function heroSection(){
   const ORDER = ['布里克','卡万','伊娃','列兵','鲁德'];
@@ -2100,6 +2150,7 @@ document.addEventListener('click', function(ev){
     if(t.dataset.plansort){ S.settings.planSort = t.dataset.plansort; save(); renderList(); renderHome(); return; }
     if(t.dataset.planlv){ editPlanLv(); return; }
     if(t.dataset.planup){ var pq = t.dataset.planup.split('|'); startBuildingUpgrade(pq[0], parseInt(pq[1],10)); return; }
+    if(t.dataset.mv){ var q=t.dataset.mv.split('|'); moveRow(q[0], parseInt(q[2],10), q[1]); return; }
     if(t.dataset.proto){ protoSheet(t.dataset.proto); return; }
     if(t.dataset.skill){ var sp = t.dataset.skill.split('|'); sheetSkill(sp[0], sp[1]); return; }
     if(t.dataset.skilllvl){
