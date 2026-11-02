@@ -256,6 +256,21 @@ nav{transition:opacity .2s ease, transform .2s ease;}
 .batchrow{display:flex;align-items:center;justify-content:space-between;background:#1b1b1d;border-radius:14px;padding:12px 14px;margin:10px 0;font-size:13px;font-weight:600}
 .arrow{display:inline-block;font-size:11px;color:#8e8e93;transition:transform .18s ease}
 .arrow.up{transform:rotate(180deg)}
+
+/* ===== 更像 App 的细节 ===== */
+*{ -webkit-tap-highlight-color: transparent; }
+html,body{ overscroll-behavior:none; -webkit-overflow-scrolling:touch; }
+body, .row, .card, .tab, .chip, .btn, nav, h1, h2, h3, span, div{
+  -webkit-user-select:none; user-select:none;
+  -webkit-touch-callout:none;
+}
+input, textarea{ -webkit-user-select:text; user-select:text; }
+button, .btn, .row, .tab, .chip{ touch-action: manipulation; }
+.btn, .tab, .chip, .row{ transition: transform .12s ease, background-color .18s ease, color .18s ease; }
+.btn:active, .chip:active, .tab:active{ transform: scale(.96); }
+.row:active{ background-color: rgba(255,255,255,.04); }
+.view{ opacity:0; transition: opacity .16s ease; }
+.view.on{ opacity:1; }
 </style>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
