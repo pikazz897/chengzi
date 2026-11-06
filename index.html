@@ -314,7 +314,7 @@ if('serviceWorker' in navigator){
       <div class="stats">
         <div class="stat"><div class="k">建筑工</div><div class="v" id="statWorker">0/1</div></div>
         <div class="stat"><div class="k">战令</div><div class="v off" id="statPass">关</div></div>
-        <div class="stat"><div class="k">清单</div><div class="v" id="statTodo">0</div></div>
+        <div class="stat"><div class="k">研究</div><div class="v" id="statLab">空闲</div></div>
       </div>
     </div>
 
@@ -753,8 +753,19 @@ function renderHome(){
   const _cut = Math.round((1 - 1 / (S.settings.speed || 1)) * 100);
   $('#statPass').textContent = (_cut > 0 ? _cut + '%' : '0%');
   $('#statPass').className = 'v ' + (S.settings.pass ? 'ok' : 'off');
-  const undone = S.todos.filter(function(t){ return !t.done; }).length;
-  $('#statTodo').textContent = undone;
+  const labTask = S.tasks.filter(function(t){ return t.lane === 'lab' || t.lane === 'proto'; })[0];
+  const _labEl = $('#statLab');
+  if(_labEl){
+    if(labTask){
+      const _left = Math.max(0, labTask.end - Date.now()) / 1000;
+      _labEl.textContent = fmtDur(_left);
+      _labEl.className = 'v gold';
+    }else{
+      const _lc = Math.round((1 - 1 / (S.settings.labSpeed || 1)) * 100);
+      _labEl.textContent = (_lc > 0 ? _lc + '%' : '0%');
+      _labEl.className = 'v' + (_lc > 0 ? ' gold' : ' off');
+    }
+  }
 
   const box = $('#homeTasks');
   $('#taskCount').textContent = S.tasks.length ? S.tasks.length + ' 项进行中' : '';
@@ -772,6 +783,7 @@ function renderHome(){
         + '<span class="lane">' + laneName(t.lane) + '</span></div>'
         + '<div class="bar"><i style="width:' + pct + '%"></i></div>'
         + '<div class="ft"><span data-left="' + t.id + '">剩余 ' + fmtDur(left/1000) + '</span><span class="sp"></span>'
+        + '<button class="btn sm gold" data-finish="' + t.id + '">立即完成</button>'
         + '<button class="btn sm" data-cancel="' + t.id + '">取消</button></div></div>';
     }).join('');
     if(all.length > 2){
@@ -1598,8 +1610,14 @@ function autoPlan(targetLv, maxItems){
   const picks = [];
   let got = 0;
   const guard = maxItems || 10;
+  const usedInst = {};
   while(got < need && picks.length < guard && pool.length){
     const it = pool.shift();
+    const keyI = it.name + '|' + it.inst;
+    if(it.lane === 'w'){
+      if(usedInst[keyI]) continue;
+      usedInst[keyI] = 1;
+    }
     picks.push(it);
     got += it.xp;
     const e = byName[it.name];
@@ -1816,7 +1834,7 @@ function startTechUpgrade(kind, name){
   if(!nx || !nx.t){ toast('缺少 Lv.' + (curLv + 1) + ' 的升级数据'); return; }
   S.tasks.push({
     id: uid(), lane: isProto ? 'proto' : 'lab', kind: 'tech', techKind: kind, name: name,
-    from: curLv, to: curLv + 1, start: Date.now(), end: Date.now() + Math.max(1, Math.round(nx.t * 1000 / (S.settings.speed || 1)))
+    from: curLv, to: curLv + 1, start: Date.now(), end: Date.now() + Math.max(1, Math.round(nx.t * 1000 / (S.settings.labSpeed || S.settings.speed || 1)))
   });
   save(); renderAll(); toast(name + ' 开始研究 → Lv.' + (item.lvl + 1));
 }
@@ -2093,13 +2111,17 @@ function sheetSettings(){
     + '<div class="switch' + (s.workers>1?' on':'') + '" data-sw="workers"><i></i></div></div>'
     + '<div class="swrow"><div class="txt">战令<small>当前未购买，默认关闭</small></div>'
     + '<div class="switch' + (s.pass?' on':'') + '" data-sw="pass"><i></i></div></div>'
-    + '<div class="field" style="margin-top:14px"><label>战令 / 加速：当前减时间百分比（0 = 没有，填 20 表示快 20%）</label>'
+    + '<div class="field" style="margin-top:14px"><label>战令 / 建筑加速：当前减时间百分比（0 = 没有，填 20 表示快 20%）</label>'
     + '<input id="setCut" type="number" step="1" min="0" max="90" value="' + Math.round((1 - 1 / (s.speed || 1)) * 100) + '"></div>'
+    + '<div class="field" style="margin-top:12px"><label>战令 / 研究加速：当前减时间百分比（研究所科技用）</label>'
+    + '<input id="setLabCut" type="number" step="1" min="0" max="90" value="' + Math.round((1 - 1 / (s.labSpeed || 1)) * 100) + '"></div>'
     + '<div class="grid2"><div class="field"><label>当前等级（1～90）</label>'
     + '<input id="setPlvl" type="number" inputmode="numeric" min="1" max="90" value="' + xpProgress().lv + '"></div>'
     + '<div class="field"><label>该等级内已有经验</label>'
     + '<input id="setXp" type="number" inputmode="numeric" min="0" value="' + xpProgress().cur + '"></div></div>'
     + '<div class="mini" style="margin:-4px 0 8px">合计 ' + fmtNum(S.xpTotal || 0) + ' 经验（改完下面任意一格即时生效）</div>'
+    + '<div class="field" style="margin-top:10px"><label>研究所等级（决定科技能升到几级）</label>'
+    + '<input id="setLab" type="number" inputmode="numeric" min="1" max="30" value="' + ((S.buildings['研究所'] && S.buildings['研究所'][0]) || 1) + '"></div>'
     + '<div class="grid2" style="margin-top:6px">'
     + '<button class="btn" id="btnExport">导出备份</button>'
     + '<button class="btn" id="btnImport">导入备份</button></div>'
@@ -2165,6 +2187,12 @@ document.addEventListener('click', function(ev){
     if(t.dataset.plansort){ S.settings.planSort = t.dataset.plansort; save(); renderList(); renderHome(); return; }
     if(t.dataset.planlv){ editPlanLv(); return; }
     if(t.dataset.planup){ var pq = t.dataset.planup.split('|'); startBuildingUpgrade(pq[0], parseInt(pq[1],10)); return; }
+    if(t.dataset.finish){
+      const fid = t.dataset.finish;
+      const ft = S.tasks.filter(function(x){ return x.id === fid; })[0];
+      if(ft){ ft.end = Date.now() - 1; settle(); renderAll(); toast('已立即完成'); }
+      return;
+    }
     if(t.dataset.mv){ var q=t.dataset.mv.split('|'); moveRow(q[0], parseInt(q[2],10), q[1]); return; }
     if(t.dataset.proto){ protoSheet(t.dataset.proto); return; }
     if(t.dataset.skill){ var sp = t.dataset.skill.split('|'); sheetSkill(sp[0], sp[1]); return; }
@@ -2297,6 +2325,21 @@ document.addEventListener('change', function(ev){
     S.xpTotal = base + extra;
     save(); renderAll();
     toast('已设为 Lv.' + lv + ' + ' + fmtNum(extra) + ' 经验');
+    return;
+  }
+  if(ev.target.id === 'setLabCut'){
+    let pct2 = Math.max(0, Math.min(90, Number(ev.target.value) || 0));
+    ev.target.value = pct2;
+    S.settings.labSpeed = 100 / (100 - pct2);
+    save(); renderAll();
+    toast(pct2 ? ('研究减时间 ' + pct2 + '%') : '研究加速已关闭');
+    return;
+  }
+  if(ev.target.id === 'setLab'){
+    const v = Math.max(1, Math.min(30, Number(ev.target.value) || 1));
+    if(!S.buildings['研究所']) S.buildings['研究所'] = [v];
+    else S.buildings['研究所'][0] = v;
+    save(); renderAll();
     return;
   }
   if(ev.target.id === 'setCut'){
