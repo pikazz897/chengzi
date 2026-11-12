@@ -664,9 +664,9 @@ function freeLane(){
   const free = lanes().filter(function(l){ return used.indexOf(l) < 0; });
   return free.length ? free[0] : null;
 }
-function laneName(l){ return l === 'w1' ? '建筑工 1' : l === 'w2' ? '建筑工 2' : l === 'lab' ? '研究所' : l === 'proto' ? '原型部队工厂' : l; }
+function laneName(l){ return l === 'w1' ? '建筑工 1' : l === 'w2' ? '建筑工 2' : l === 'lab' ? '研究所' : l === 'proto' ? '原型部队工厂' : (l && l.indexOf('coin') === 0) ? '建筑币工人' : l; }
 
-function startBuildingUpgrade(name, idx){
+function startBuildingUpgrade(name, idx, coinLane){
   const arr = S.buildings[name];
   if(!arr){ toast('未知建筑'); return; }
   // 防重复：同一座已经在升级中，直接拒绝（防止并发点击造成数据错乱）
@@ -679,15 +679,15 @@ function startBuildingUpgrade(name, idx){
   if(cur >= maxL){ toast('已达大本 ' + S.hq + ' 级上限 Lv.' + maxL); return; }
   const next = recOf(name, cur+1);
   if(!next || !next.t){ toast('缺少 Lv.' + (cur+1) + ' 的升级数据'); return; }
-  let lane = freeLane();
+  let lane = coinLane || freeLane();
   if(!lane){
     // 建筑工都忙：提示可用建筑币立即完成一个
     const earliest = S.tasks.slice().sort(function(a,b){ return a.end - b.end; })[0];
     const nmE = earliest ? (earliest.name + ' Lv.' + earliest.from + '→' + earliest.to) : '';
     openSheet('<h3>建筑工都在忙</h3>'
       + '<div class="sub">' + (nmE ? ('最早完成的是「' + esc(nmE) + '」') : '当前有 ' + S.tasks.length + ' 个升级在进行') + '</div>'
-      + '<div class="mini" style="margin-top:8px">用建筑币可以立即完成一个正在进行的升级，然后马上开始这次升级。</div>'
-      + '<button class="btn gold" style="width:100%;margin-top:12px" data-coin="' + esc(name) + '|' + idx + '">用建筑币立即完成并开始</button>'
+      + '<div class="mini" style="margin-top:8px">建筑币会临时增加一个建筑工，这一项可以立刻开始，和正在进行的升级同时进行。</div>'
+      + '<button class="btn gold" style="width:100%;margin-top:12px" data-coin="' + esc(name) + '|' + idx + '">用建筑币开始（临时建筑工）</button>'
       + '<button class="btn" style="width:100%;margin-top:8px" data-close="1">先等等</button>');
     return;
   }
@@ -2203,11 +2203,9 @@ document.addEventListener('click', function(ev){
     if(t.dataset.coin){
       const parts = t.dataset.coin.split('|');
       const nmC = parts[0], idxC = parseInt(parts[1],10);
-      const oldT = S.tasks.slice().sort(function(a,b){ return a.end - b.end; })[0];
-      if(oldT){ oldT.end = Date.now() - 1; }
-      settle();
       closeSheet();
-      startUpgrade(nmC, idxC);
+      startBuildingUpgrade(nmC, idxC, 'coin' + Date.now());
+      toast('已用建筑币增加临时建筑工，开始升级');
       return;
     }
     if(t.dataset.finish){
