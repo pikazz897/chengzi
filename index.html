@@ -783,7 +783,7 @@ function renderHome(){
     box.innerHTML = '<div class="card"><div class="empty">空闲中。去「基地」点一座建筑开始升级。</div></div>';
   }else{
     const all = S.tasks;
-    const shown = homeTaskOpen ? all : all.slice(0, 2);
+    const shown = homeTaskOpen ? all : all.slice(0, 4);
     let html = shown.map(function(t){
       const total = t.end - t.start, left = t.end - Date.now();
       const pct = Math.max(0, Math.min(100, (1 - left/total) * 100));
@@ -796,12 +796,10 @@ function renderHome(){
         + '<button class="btn sm gold" data-finish="' + t.id + '">立即完成</button>'
         + '<button class="btn sm" data-cancel="' + t.id + '">取消</button></div></div>';
     }).join('');
-    if(all.length > 2){
-      const rest = all.length - 2;
-      html += '<div class="card" style="padding:10px;text-align:center;cursor:pointer"'
-        + ' onclick="homeTaskOpen=!homeTaskOpen;renderHome()">'
-        + '<span class="mini" style="color:var(--dim)">'
-        + (homeTaskOpen ? '收起 ▲' : ('还有 ' + rest + ' 条进行中 · 展开 ▼')) + '</span></div>';
+    if(all.length > 4){
+      const rest = all.length - 4;
+      html += '<button class="btn" style="width:100%;margin-top:8px" data-htoggle="1">'
+        + (homeTaskOpen ? '收起 ▲' : ('还有 ' + rest + ' 条进行中 · 展开 ▼')) + '</button>';
     }
     box.innerHTML = html;
   }
@@ -2201,6 +2199,7 @@ document.addEventListener('click', function(ev){
     if(t.dataset.plansort){ S.settings.planSort = t.dataset.plansort; save(); renderList(); renderHome(); return; }
     if(t.dataset.planlv){ editPlanLv(); return; }
     if(t.dataset.planup){ var pq = t.dataset.planup.split('|'); startBuildingUpgrade(pq[0], parseInt(pq[1],10)); return; }
+    if(t.dataset.htoggle){ homeTaskOpen = !homeTaskOpen; renderHome(); return; }
     if(t.dataset.coin){
       const parts = t.dataset.coin.split('|');
       const nmC = parts[0], idxC = parseInt(parts[1],10);
