@@ -587,7 +587,11 @@ function load(){
   }catch(e){ storageOK = false; }
   try{
     const raw = localStorage.getItem(KEY);
-    if(raw){ const o = JSON.parse(raw); return Object.assign(fresh(), o); }
+    if(raw){
+      const o = JSON.parse(raw);
+      const merged = Object.assign(fresh(), o);
+      return merged;
+    }
   }catch(e){ storageOK = false; }
   return fresh();
 }
@@ -1588,6 +1592,52 @@ function scheduleMake(items){
 function levelXP(lv){
   return (typeof PLAYER_XP !== 'undefined' && PLAYER_XP[lv-1]) || 0;
 }
+function planToTarget(needXp){
+  // 逐级模拟：每步挑当前最优的一项升一级；大本升级后上限自动提高
+  const cur = {};
+  Object.keys(S.buildings || {}).forEach(function(n){ cur[n] = (S.buildings[n] || []).slice(); });
+  let hq = S.hq || 24;
+  let xp = 0, secs = 0, n = 0;
+  for(let guard = 0; guard < 3000 && xp < needXp; guard++){
+    let best = null;
+    Object.keys(cur).forEach(function(name){
+      const e = byName[name];
+      if(!e || !e.lv) return;
+      const cap = (name === '司令部') ? e.lv[e.lv.length - 1].v : maxLvlAt(name, hq);
+      cur[name].forEach(function(v, i){
+        if(cap != null && v >= cap) return;
+        const r = e.lv.filter(function(x){ return x.v === v + 1; })[0];
+        if(!r || !r.t || !r.xp) return;
+        const rate = r.xp / r.t;
+        if(!best || rate > best.rate) best = {name: name, idx: i, v: v, r: r, rate: rate};
+      });
+    });
+    if(!best) break;
+    cur[best.name][best.idx] = best.v + 1;
+    xp += best.r.xp; secs += best.r.t; n++;
+    if(best.name === '司令部') hq = Math.max(hq, best.v + 1);
+  }
+  const workers = Math.max(1, S.settings.workers || 1);
+  const speed = S.settings.speed || 1;
+  return {xp: xp, secs: Math.round(secs / workers / speed), n: n, reachable: xp >= needXp};
+}
+function planTotals(){
+  let secs = 0, count = 0;
+  Object.keys(S.buildings || {}).forEach(function(name){
+    const e = byName[name];
+    if(!e || !e.lv) return;
+    const cap = (name === '司令部') ? e.lv[e.lv.length - 1].v : maxLvlAt(name, S.hq);
+    (S.buildings[name] || []).forEach(function(cur){
+      for(let v = cur + 1; v <= (cap == null ? cur : cap); v++){
+        const r = e.lv.filter(function(x){ return x.v === v; })[0];
+        if(r && r.t){ secs += r.t; count++; }
+      }
+    });
+  });
+  const workers = Math.max(1, S.settings.workers || 1);
+  const speed = S.settings.speed || 1;
+  return {count: count, secs: Math.round(secs / workers / speed)};
+}
 function autoPlan(targetLv, maxItems){
   const curXp = S.xpTotal || 0;
   const need = Math.max(0, levelXP(targetLv) - curXp);
@@ -1697,10 +1747,17 @@ function renderPlan(){
     + '<div class="kv"><span class="k">本批 ' + p.picks.length + ' 项可拿</span><span class="v">+' + fmtNum(p.got) + ' 经验</span></div>'
     + (function(){
         const batches = Math.max(1, Math.ceil(p.need / Math.max(1, p.got)));
-        const totalT = batches * p.makespan + (S.tasks || []).reduce(function(a,t){ return a + Math.max(0, t.end - Date.now())/1000; }, 0);
+        const totalT = batches * p.makespan;
         return '<div class="timebox">'
           + '<div class="kv"><span class="k">本批 ' + p.picks.length + ' 项 · 工人 ' + p.workers + ' 人 · 减时间 ' + Math.round((1 - 1/p.speed) * 100) + '%</span><span class="v">约 ' + fmtDur(p.makespan) + '</span></div>'
-          + '<div class="kv"><span class="k">需要约 ' + batches + ' 个批次</span><span class="v">合计 ' + fmtDur(totalT) + '</span></div>'
+                    + (function(){
+              const pt = planToTarget(p.need);
+              return '<div class="kv"><span class="k">' + (pt.reachable ? ('升到目标 Lv.' + (S.settings.planLv || 72) + ' · 做 ' + pt.n + ' 项') : '经验不够（可升项总共只有 ' + fmtNum(pt.xp) + '）') + '</span><span class="v">' + (pt.reachable ? ('约 ' + Math.ceil(pt.secs / 86400) + ' 天') : '—') + '</span></div>';
+            })()
+          + (function(){
+              const tt = planTotals();
+              return '<div class="kv"><span class="k">全部剩余升级 ' + tt.count + ' 项 · 全部做完共需</span><span class="v">' + Math.ceil(tt.secs / 86400) + ' 天</span></div>';
+            })()
           + '</div>';
       })()
     + '<div class="kv"><span class="k">做完本批累计</span><span class="v">' + fmtNum(p.got) + ' / ' + fmtNum(p.need) + '（还差 ' + fmtNum(p.need - p.got) + '）</span></div>'
