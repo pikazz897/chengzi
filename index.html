@@ -2167,7 +2167,7 @@ function sheetDb(name){
     html += '<tr>' + cols.map(function(c){
       const k = c[0];
       let v;
-      if(k === 't') v = r.t != null ? fmtDur(adjT(r.t)) : '—';
+      if(k === 't') v = r.t != null ? fmtDur((e.cat === '兵种' || e.cat === '战舰武器' || e.cat === '原型部队') ? labAdjT(r.t) : adjT(r.t)) : '—';
       else if(k === 'p' || k === 'v' || k === 'hq' || k === 'plvl') v = r[k] != null ? r[k] : '—';
       else v = r[k] != null ? fmtNum(r[k]) : '—';
       return '<td class="' + (k==='v'?'gold':'') + '">' + v + '</td>';
