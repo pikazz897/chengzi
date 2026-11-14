@@ -1106,6 +1106,10 @@ function adjT(sec){
   const sp = (S.settings && S.settings.speed) || 1;
   return sec ? Math.max(1, Math.round(sec / sp)) : 0;
 }
+function labAdjT(sec){
+  const sp = (S.settings && S.settings.labSpeed) || (S.settings && S.settings.speed) || 1;
+  return sec ? Math.max(1, Math.round(sec / sp)) : 0;
+}
 function techMaxLv(kind, name){
   const key = TROOP_ALIAS[name] || name;
   const e = byName[key];
@@ -1162,7 +1166,7 @@ function protoSheet(name){
     + '<h3>' + esc(name) + '</h3><div class="sub">当前 Lv.' + cur + ' · 工厂等级上限 Lv.' + maxL + '</div>'
     + '<div class="kv"><span class="k">生命值</span><span class="v">' + fmtNum(r.hp || 0) + '</span></div>'
     + '<div class="kv"><span class="k">每秒伤害</span><span class="v">' + (r.dps ? fmtNum(r.dps) : '—') + '</span></div>'
-    + (nx ? '<div class="kv"><span class="k">升到 Lv.' + nx.v + '</span><span class="v">' + (nx.upcost ? fmtNum(nx.upcost) + ' 金币' : '—') + ' · ' + fmtDur(adjT(nx.t || 0)) + '</span></div>'
+    + (nx ? '<div class="kv"><span class="k">升到 Lv.' + nx.v + '</span><span class="v">' + (nx.upcost ? fmtNum(nx.upcost) + ' 金币' : '—') + ' · ' + fmtDur(labAdjT(nx.t || 0)) + '</span></div>'
           + '<div class="kv"><span class="k">需要工厂等级</span><span class="v">Lv.' + (nx.lab || '—') + '</span></div>' : '<div class="mini">已满级</div>')
     + '<button class="btn gold" style="width:100%;margin-top:12px" data-techgo="p|' + esc(name) + '">开始研究（原型部队工厂）</button>'
     + '<button class="btn" style="width:100%;margin-top:8px" data-db="' + esc(name) + '">查看逐级数据</button>'
@@ -1315,7 +1319,7 @@ function troopSection(title, arr, kind){
         const nx = e.lv.filter(function(r){ return r.v === x.lvl + 1; })[0];
         if(nx){
           nextInfo = ' · 下一级：' + (nx.lab ? '研究所 Lv.' + nx.lab + ' · ' : '')
-            + (nx.upcost ? fmtNum(nx.upcost) + ' 金币 · ' : '') + fmtDur(adjT(nx.t || 0));
+            + (nx.upcost ? fmtNum(nx.upcost) + ' 金币 · ' : '') + fmtDur(labAdjT(nx.t || 0));
         }else if(maxV){
           nextInfo = ' · 已满级';
         }
@@ -2128,7 +2132,7 @@ function sheetTroop(kind, i){
       + (nx.lab ? '研究所 Lv.' + nx.lab : '—') + '</span></div>'
       + '<div class="kv"><span class="k">升级花费</span><span class="v">'
       + (nx.upcost ? fmtNum(nx.upcost) + ' 金币' : '—') + '</span></div>'
-      + '<div class="kv"><span class="k">升级时间</span><span class="v">' + fmtDur(adjT(nx.t || 0)) + '</span></div>'
+      + '<div class="kv"><span class="k">升级时间</span><span class="v">' + fmtDur(labAdjT(nx.t || 0)) + '</span></div>'
       + '<div class="kv"><span class="k">获得经验</span><span class="v">' + fmtNum(nx.xp || 0) + '</span></div>';
   }
   openSheet('<h3>' + esc(x.name) + '</h3>'
@@ -2197,6 +2201,7 @@ function sheetSettings(){
     + '<div class="mini" style="margin-top:10px">数据存在这台手机的浏览器里。' + (storageOK ? '本地存储可用。' : '⚠️ 本地存储不可用，请务必导出备份。') + '</div>'
     + '<button class="btn" id="btnForceUpdate" style="width:100%;margin-top:14px">检查更新 / 强制刷新</button>'
     + '<div class="mini" style="margin-top:6px">页面显示旧版时点它：清掉网页缓存后重新加载，<b>不会删除你的数据</b></div>'
+    + '<button class="btn" id="btnRestore" style="width:100%;margin-top:10px">恢复重置前的数据</button>'
     + '<button class="btn" id="btnReset" style="width:100%;margin-top:14px;color:var(--red)">重置为初始数据</button>'
   );
 }
@@ -2551,10 +2556,26 @@ document.addEventListener('click', function(ev){
   if(id === 'btnExport'){ exportData(); }
   if(id === 'btnImport'){ importData(); }
   if(id === 'btnReset'){
-    if(confirm('确定把所有数据恢复成初始状态？')){ S = fresh(); save(); closeSheet(); renderAll(); }
+    if(confirm('确定把所有数据恢复成初始状态？\n\n会先自动备份一份，之后可以在设置里点「恢复重置前的数据」找回来。')){
+      try{ localStorage.setItem('bb_reset_backup', JSON.stringify(S)); }catch(e){}
+      S = fresh(); save(); closeSheet(); renderAll();
+      toast('已重置，原数据已备份');
+    }
   }
 });
 
+function restoreBackup(){
+  let raw = null;
+  try{ raw = localStorage.getItem('bb_reset_backup'); }catch(e){}
+  if(!raw){ toast('没有可恢复的备份'); return; }
+  if(!confirm('用上次重置前的数据覆盖当前数据？')) return;
+  try{
+    const o = JSON.parse(raw);
+    S = Object.assign(fresh(), o);
+    save(); closeSheet(); renderAll();
+    toast('已恢复重置前的数据');
+  }catch(e){ toast('备份读取失败'); }
+}
 function exportData(){
   const txt = JSON.stringify(S, null, 1);
   try{
