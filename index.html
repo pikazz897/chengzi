@@ -1596,6 +1596,89 @@ function scheduleMake(items){
 function levelXP(lv){
   return (typeof PLAYER_XP !== 'undefined' && PLAYER_XP[lv-1]) || 0;
 }
+function simParallel(needXp){
+  // 并行模拟：工人线(建筑) + 研究所线(兵种/战舰武器) + 工厂线(原型部队)
+  const W = Math.max(1, (S.settings.workers || 1));
+  const spB = S.settings.speed || 1;
+  const spL = S.settings.labSpeed || spB;
+  const bLv = {};
+  Object.keys(S.buildings || {}).forEach(function(n){ bLv[n] = (S.buildings[n] || []).slice(); });
+  let hq = S.hq || 24;
+  const troops = (S.troops || []).map(function(x){ return {name: x.name, lv: x.lvl, kind: 't'}; });
+  const weapons = (S.weapons || []).map(function(x){ return {name: x.name, lv: x.lvl, kind: 'w'}; });
+  const protos = [];
+  const lanes = [];
+  for(let i = 0; i < W; i++) lanes.push({kind: 'b', at: 0, cur: null});
+  lanes.push({kind: 'lab', at: 0, cur: null});
+  // 原型部队研究不给经验，不计入经验冲刺
+
+  function bestFor(kind){
+    let best = null;
+    if(kind === 'b'){
+      Object.keys(bLv).forEach(function(name){
+        const e = byName[name]; if(!e || !e.lv) return;
+        const cap = (name === '司令部') ? e.lv[e.lv.length-1].v : maxLvlAt(name, hq);
+        bLv[name].forEach(function(v, i){
+          if(cap != null && v >= cap) return;
+          const r = e.lv.filter(function(x){ return x.v === v + 1; })[0];
+          if(!r || !r.t || !r.xp) return;
+          const rate = r.xp / r.t;
+          if(!best || rate > best.rate) best = {rate: rate, name: name, idx: i, v: v, r: r, cost: r.t / spB};
+        });
+      });
+    }else if(kind === 'lab'){
+      const labLv = (S.buildings['研究所'] && S.buildings['研究所'][0]) || 1;
+      const arr = troops.concat(weapons);
+      arr.forEach(function(it){
+        const e = byName[it.name]; if(!e || !e.lv) return;
+        const r = e.lv.filter(function(x){ return x.v === it.lv + 1; })[0];
+        if(!r || !r.t || !r.xp) return;
+        if((r.lab || 0) > labLv) return;
+        const rate = r.xp / r.t;
+        if(!best || rate > best.rate) best = {rate: rate, it: it, r: r, cost: r.t / spL};
+      });
+    }else{
+      const facLv = (S.buildings['原型部队工厂'] && S.buildings['原型部队工厂'][0]) || 1;
+      protos.forEach(function(it){
+        const e = byName[it.name]; if(!e || !e.lv) return;
+        const r = e.lv.filter(function(x){ return x.v === it.lv + 1; })[0];
+        if(!r || !r.t || !r.xp) return;
+        if((r.lab || 0) > facLv) return;
+        const rate = r.xp / r.t;
+        if(!best || rate > best.rate) best = {rate: rate, it: it, r: r, cost: r.t / spL};
+      });
+    }
+    return best;
+  }
+
+  let now = 0, xp = 0, n = 0;
+  for(let guard = 0; guard < 20000 && xp < needXp; guard++){
+    lanes.forEach(function(l){
+      if(l.at > now || l.cur) return;
+      const b = bestFor(l.kind);
+      if(!b){ l.at = Infinity; return; }
+      l.cur = b; l.at = now + b.cost;
+    });
+    let next = Infinity;
+    lanes.forEach(function(l){ if(l.at < next) next = l.at; });
+    if(!isFinite(next)) break;
+    now = next;
+    lanes.forEach(function(l){
+      if(l.cur && l.at <= now + 0.5){
+        const b = l.cur;
+        xp += b.r.xp; n++;
+        if(l.kind === 'b'){
+          bLv[b.name][b.idx] = b.v + 1;
+          if(b.name === '司令部') hq = Math.max(hq, b.v + 1);
+        }else{
+          b.it.lv = b.it.lv + 1;
+        }
+        l.cur = null; l.at = now;
+      }
+    });
+  }
+  return {secs: Math.round(now), xp: xp, n: n, reachable: xp >= needXp};
+}
 function planToTarget(needXp){
   // 逐级模拟：每步挑当前最优的一项升一级；大本升级后上限自动提高
   const cur = {};
@@ -1647,16 +1730,7 @@ function autoPlan(targetLv, maxItems){
   const need = Math.max(0, levelXP(targetLv) - curXp);
   if(!need) return null;
   const pool = [];
-  S.troops.forEach(function(x){
-    const e = techEntry('t', x.name);
-    const nx = e && e.lv ? e.lv.filter(function(r){ return r.v === x.lvl + 1; })[0] : null;
-    if(nx && nx.t && nx.xp) pool.push({lane:'lab', tkind:'t', name:x.name, inst:0, from:x.lvl, to:x.lvl+1, t:nx.t, xp:nx.xp, rate:nx.xp/nx.t});
-  });
-  S.weapons.forEach(function(x){
-    const e = techEntry('w', x.name);
-    const nx = e && e.lv ? e.lv.filter(function(r){ return r.v === x.lvl + 1; })[0] : null;
-    if(nx && nx.t && nx.xp) pool.push({lane:'lab', tkind:'w', name:x.name, inst:0, from:x.lvl, to:x.lvl+1, t:nx.t, xp:nx.xp, rate:nx.xp/nx.t});
-  });
+  // 批次只排建筑（研究所单独一块，不重复出现）
   Object.keys(S.buildings).forEach(function(name){
     const e = byName[name];
     if(!e || !e.lv) return;
@@ -1755,7 +1829,7 @@ function renderPlan(){
         return '<div class="timebox">'
           + '<div class="kv"><span class="k">本批 ' + p.picks.length + ' 项 · 工人 ' + p.workers + ' 人 · 减时间 ' + Math.round((1 - 1/p.speed) * 100) + '%</span><span class="v">约 ' + fmtDur(p.makespan) + '</span></div>'
                     + (function(){
-              const pt = planToTarget(p.need);
+              const pt = simParallel(p.need);
               return '<div class="kv"><span class="k">' + (pt.reachable ? ('升到目标 Lv.' + (S.settings.planLv || 72) + ' · 做 ' + pt.n + ' 项') : '经验不够（可升项总共只有 ' + fmtNum(pt.xp) + '）') + '</span><span class="v">' + (pt.reachable ? ('约 ' + Math.ceil(pt.secs / 86400) + ' 天') : '—') + '</span></div>';
             })()
           + (function(){
