@@ -1168,7 +1168,9 @@ function protoSheet(name){
     + '<div class="kv"><span class="k">每秒伤害</span><span class="v">' + (r.dps ? fmtNum(r.dps) : '—') + '</span></div>'
     + (nx ? '<div class="kv"><span class="k">升到 Lv.' + nx.v + '</span><span class="v">' + (nx.upcost ? fmtNum(nx.upcost) + ' 金币' : '—') + ' · ' + fmtDur(labAdjT(nx.t || 0)) + '</span></div>'
           + '<div class="kv"><span class="k">需要工厂等级</span><span class="v">Lv.' + (nx.lab || '—') + '</span></div>' : '<div class="mini">已满级</div>')
-    + '<button class="btn gold" style="width:100%;margin-top:12px" data-techgo="p|' + esc(name) + '">开始研究（原型部队工厂）</button>'
+    + ((S.protoLv && S.protoLv[name] || 1) >= techMaxLv('p', name)
+        ? '<div class="mini" style="margin-top:12px;text-align:center;color:var(--gold)">已满级 Lv.' + techMaxLv('p', name) + '</div>'
+        : '<button class="btn gold" style="width:100%;margin-top:12px" data-techgo="p|' + esc(name) + '">开始研究（原型部队工厂）</button>')
     + '<button class="btn" style="width:100%;margin-top:8px" data-db="' + esc(name) + '">查看逐级数据</button>'
     + '<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:12px">'
     + '<button class="btn" data-tlvl="p|' + esc(name) + '|-1" style="padding:6px 18px">－</button>'
@@ -1511,7 +1513,7 @@ function renderXpPlan(target, mode, sort){
     html += '<div class="calcitem">'
       + '<span style="width:22px;color:var(--dim2);font-size:12px">' + (i + 1) + '</span>'
       + '<span class="nm3">' + esc(c.name) + ' <span class="mini">第' + (c.idx + 1) + '座</span>'
-      + '<div class="mini" style="font-size:11px">' + fmtNum(c.xp) + ' 经验 · ' + fmtDur(c.t)
+      + '<div class="mini" style="font-size:11px">' + fmtNum(c.xp) + ' 经验 · ' + fmtDur(adjT(c.t))
       + ' · ' + fmtNum(Math.round(c.rate)) + ' 经验/小时</div></span>'
       + '<span style="color:var(--gold);font-weight:700;font-size:13px">Lv.' + c.from + '→' + c.to + '</span>'
       + '</div>';
@@ -1883,7 +1885,7 @@ function labBlock(sortKey){
   return '<div class="batchrow" data-labtoggle="1"><span>研究所 · ' + list.length + ' 项</span><span class="arrow' + (openLab ? ' up' : '') + '">▼</span></div>'
     + '<div class="rowlist"' + (openLab ? '' : ' style="display:none"') + '>' + list.map(function(it){
         return '<div class="row"><div class="main"><div class="nm">' + esc(it.name) + ' <span class="tag">科技</span></div>'
-          + '<div class="sub">Lv.' + it.from + ' → ' + it.to + ' · ' + fmtDur(adjT(it.t)) + ' · +' + it.xp + ' 经验</div></div>'
+          + '<div class="sub">Lv.' + it.from + ' → ' + it.to + ' · ' + fmtDur(labAdjT(it.t)) + ' · +' + it.xp + ' 经验</div></div>'
           + (function(){
               const busy = S.tasks.some(function(t){ return t.kind === 'tech' && t.name === it.name; });
               return '<button class="btn sm ' + (busy ? '' : 'gold') + '" '
@@ -2212,7 +2214,9 @@ function sheetTroop(kind, i){
   openSheet('<h3>' + esc(x.name) + '</h3>'
     + '<div class="sub">当前 Lv.' + x.lvl + (maxV ? ' · 满级 Lv.' + maxV : '') + '</div>'
     + (extra || '<div class="mini">这个条目还没有逐级数据，补完表后重新生成即可。</div>')
-    + (hasData ? '<button class="btn gold" style="width:100%;margin-top:12px" data-techgo="' + kind + '|' + esc(x.name) + '">开始研究（研究所）</button>' : '')
+    + (hasData ? (x.lvl >= techMaxLv(kind, x.name)
+        ? '<div class="mini" style="margin-top:12px;text-align:center;color:var(--gold)">已满级 Lv.' + techMaxLv(kind, x.name) + '</div>'
+        : '<button class="btn gold" style="width:100%;margin-top:12px" data-techgo="' + kind + '|' + esc(x.name) + '">开始研究（研究所）</button>') : '')
     + (hasData ? '<button class="btn" style="width:100%;margin-top:8px" data-db="' + esc(key) + '">查看逐级数据</button>' : '')
     + ''
     + '<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:8px">'
